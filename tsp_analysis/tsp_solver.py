@@ -49,12 +49,11 @@ def solve_tsp_with_lkh(points: np.ndarray):
         if coord in index_map:
             tsp_order.append(index_map[coord])
         else:
-            # fallback robuste : nearest neighbor
+            # fallback : nearest neighbor
             diffs = points - np.array(coord)
             dists = np.hypot(diffs[:, 0], diffs[:, 1])
             tsp_order.append(int(np.argmin(dists)))
 
-    #tsp_order = [index_map[coord] for coord in reprojected]
     return tsp_order
 
 

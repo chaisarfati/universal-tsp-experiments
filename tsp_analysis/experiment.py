@@ -138,8 +138,6 @@ def find_best_subset_randomized_generic(
 
     # Random combinations
     random_combs = pick_random_combs(N, k, max_iter, seed=seed)
-    print(f"✅ random_combs : {random_combs}")
-
 
     # Main loop
     for idx, indices in enumerate(random_combs):

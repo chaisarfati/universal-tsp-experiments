@@ -111,7 +111,6 @@ def save_cosmas_result_to_file(
     ratio = heuristic_cost / tsp_cost
     ratio_over_cosmas = ratio / cosmas
 
-    # ratio en pourcentage, 2 décimales, virgule française
     ratio_pct = round(100 * ratio_over_cosmas, 2)
     ratio_str = f"{ratio_pct:.2f}".replace(".", ",")
 
@@ -141,7 +140,7 @@ def save_cosmas_result_to_file(
 
 def load_cosmas_result_from_file(path):
     """
-    Charge un fichier cosmas .npz directement (utile si le nom contient timestamp/suffixes).
+    Loads a cosmas .npz file.
     """
     data = np.load(path, allow_pickle=True)
     out = {
@@ -156,7 +155,6 @@ def load_cosmas_result_from_file(path):
         "k": int(data["k"]) if "k" in data else None,
         "pivot_state_map": data["pivot_state_map"].item() if "pivot_state_map" in data else {},
     }
-    # optionnels (si tu sauvegardes ratio_ratio par ex.)
     if "ratio_over_cosmas" in data:
         out["ratio_over_cosmas"] = float(data["ratio_over_cosmas"].item())
     return out
