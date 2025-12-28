@@ -1,5 +1,5 @@
 import numpy as np
-from math import cos, sin, pi, log2
+from math import cos, sin, pi
 import math
 import random
 

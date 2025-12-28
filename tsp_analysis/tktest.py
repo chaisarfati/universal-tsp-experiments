@@ -11,6 +11,15 @@ from matplotlib.widgets import CheckButtons
 
 from .experiment import load_result_from_file
 
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+from .experiment import load_result_from_file
+from .plotting import display_order_vs_tsp, visualize_state_in_square
+from .cosmas import (
+    collect_pivots_multiscale,
+    extract_strip_pivots,
+)
 
 # ============================================================
 # Classic indexing (inchangé / compatible avec ton format actuel)
@@ -592,7 +601,7 @@ class CosmasResultsTab(ttk.Frame):
 
         # Important: ouvrir TA fenêtre Matplotlib interactive existante
         try:
-            from .cosmas13 import display_order_vs_tsp
+            from .plotting import display_order_vs_tsp
         except Exception as e:
             messagebox.showerror(
                 "Import error",
@@ -645,9 +654,9 @@ class CosmasResultsTab(ttk.Frame):
 
         def run_and_close():
             try:
-                from . import cosmas13
+                from . import cosmas
             except Exception as e:
-                messagebox.showerror("Import error", f"Impossible d'importer cosmas13.py\n{e}")
+                messagebox.showerror("Import error", f"Impossible d'importer cosmas.py\n{e}")
                 return
 
             M = int(M_var.get())
@@ -657,13 +666,13 @@ class CosmasResultsTab(ttk.Frame):
 
             try:
                 # Pipeline (reprend ton main cosmas)
-                points = cosmas13.generate_grid_points(M)
-                order, _ = cosmas13.hilbert_order(points)
+                points = cosmas.generate_grid_points(M)
+                order, _ = cosmas.hilbert_order(points)
 
-                results = cosmas13.collect_pivots_multiscale(points, order, r)
+                results = cosmas.collect_pivots_multiscale(points, order, r)
 
-                global_line = cosmas13.generate_random_global_line()
-                S = cosmas13.extract_strip_pivots(results, global_line, delta)
+                global_line = cosmas.generate_random_global_line()
+                S = cosmas.extract_strip_pivots(results, global_line, delta)
 
                 pivot_state_map = {
                     tuple(st["p"]): st
@@ -671,14 +680,14 @@ class CosmasResultsTab(ttk.Frame):
                     if tuple(st["p"]) in map(tuple, S)
                 }
 
-                heuristic_indices = cosmas13.induced_order(points, order, S)
-                heuristic_cost = cosmas13.compute_path_cost(S, heuristic_indices)
+                heuristic_indices = cosmas.induced_order(points, order, S)
+                heuristic_cost = cosmas.compute_path_cost(S, heuristic_indices)
 
-                tsp_indices = cosmas13.solve_tsp_with_lkh(S)
-                tsp_cost = cosmas13.compute_path_cost(S, np.array(tsp_indices))
+                tsp_indices = cosmas.solve_tsp_with_lkh(S)
+                tsp_cost = cosmas.compute_path_cost(S, np.array(tsp_indices))
 
                 # Sauvegarde (tu gères le nom dans save_cosmas_result_to_file)
-                cosmas13.save_cosmas_result_to_file(
+                cosmas.save_cosmas_result_to_file(
                     S=S,
                     heur_order=np.array(heuristic_indices),
                     tsp_order=np.array(tsp_indices),
