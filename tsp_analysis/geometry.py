@@ -175,7 +175,7 @@ def find_backtrack_state(points, order, l=0.3, w=0.08, angle_steps=180, max_trie
         p_index = random.randint(2, len(ordered) - 3)
         p = ordered[p_index]
 
-        # scan des angles
+        # scan of angles
         for theta in angles:
             d = np.array([cos(theta), sin(theta)])
             d /= np.linalg.norm(d)

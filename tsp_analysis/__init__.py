@@ -25,16 +25,8 @@ from .utils import (
     max_iter_from_k,
 )
 
-from .plotting import (
-    plot_grid_with_points,
-    plot_grid_with_points_interactive,
-)
-
 from .experiment import (
     find_worst_subset_randomized_generic,
-    save_result_to_file,
-    load_result_from_file,
-    demo_load,
     run_experiments,
 )
 

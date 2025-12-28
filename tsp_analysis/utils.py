@@ -47,6 +47,41 @@ def max_iter_from_k(k: int) -> int:
         return 5
 
 # -------------------------
+# SAVE / LOAD RESULTS
+# -------------------------
+def save_generic_utsp_result_to_file(points, heur_order, tsp_order, ratio, M, k, oracle_name="heuristic", folder="results"):
+    """Save one .npz per heuristic with metadata."""
+    os.makedirs(folder, exist_ok=True)
+    filename = f"{folder}/grid_M{M}_set_k{k}_heuristic_{oracle_name}.npz"
+
+    log_of_k = math.log2(k)
+    cosmas = math.sqrt(log_of_k / math.log2(log_of_k))
+
+    np.savez_compressed(
+        filename,
+        points=points,
+        heur_order=heur_order,
+        tsp_order=tsp_order,
+        ratio=ratio,
+        log_of_k=log_of_k,
+        cosmas=cosmas,
+    )
+    print(f"💾 Saved: {filename}")
+
+def load_generic_utsp_result_from_file(M, k, oracle_name="hilbert", folder="results"):
+    """Load a saved .npz result."""
+    filename = f"{folder}/grid_M{M}_set_k{k}_heuristic_{oracle_name}.npz"
+    data = np.load(filename)
+    return {
+        "points": data["points"],
+        "heur_order": data["heur_order"],
+        "tsp_order": data["tsp_order"],
+        "log_of_k": data["log_of_k"],
+        "cosmas": data["cosmas"],
+        "ratio": data["ratio"].item()
+    }
+
+# -------------------------
 # FILE SAVING UTILS
 # -------------------------
 def save_cosmas_result_to_file(
@@ -103,19 +138,26 @@ def save_cosmas_result_to_file(
 
     print(f"💾 Saved: {filename}")
 
-def load_cosmas_result_from_file(filename):
-    data = np.load(filename, allow_pickle=True)
-    return {
+
+def load_cosmas_result_from_file(path):
+    """
+    Charge un fichier cosmas .npz directement (utile si le nom contient timestamp/suffixes).
+    """
+    data = np.load(path, allow_pickle=True)
+    out = {
         "points": data["points"],
         "heur_order": data["heur_order"],
         "tsp_order": data["tsp_order"],
-        "heuristic_cost": data["heuristic_cost"].item(),
-        "tsp_cost": data["tsp_cost"].item(),
-        "ratio": data["ratio"].item(),
-        "cosmas": data["cosmas"].item(),
-        "ratio_over_cosmas": data["ratio_over_cosmas"].item(),
-        "M": int(data["M"]),
-        "k": int(data["k"]),
-        "pivot_state_map": data["pivot_state_map"].item(),
-        "timestamp": data.get("timestamp", None),
+        "heuristic_cost": float(data["heuristic_cost"].item()) if "heuristic_cost" in data else None,
+        "tsp_cost": float(data["tsp_cost"].item()) if "tsp_cost" in data else None,
+        "ratio": float(data["ratio"].item()) if "ratio" in data else None,
+        "cosmas": float(data["cosmas"].item()) if "cosmas" in data else None,
+        "M": int(data["M"]) if "M" in data else None,
+        "k": int(data["k"]) if "k" in data else None,
+        "pivot_state_map": data["pivot_state_map"].item() if "pivot_state_map" in data else {},
     }
+    # optionnels (si tu sauvegardes ratio_ratio par ex.)
+    if "ratio_over_cosmas" in data:
+        out["ratio_over_cosmas"] = float(data["ratio_over_cosmas"].item())
+    return out
+

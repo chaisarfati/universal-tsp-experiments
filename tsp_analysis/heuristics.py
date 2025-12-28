@@ -73,7 +73,7 @@ def platzman_order(points: np.ndarray):
     return indices, sfc_codes
 
 # === Accessible heuristics ===
-heuristics_registry = {
+heuristics_registry_dict = {
     "Hilbert": hilbert_order,
     "Z-order": zcurve_order,
     "Platzman": platzman_order,

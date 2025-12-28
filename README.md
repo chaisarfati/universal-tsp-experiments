@@ -17,27 +17,6 @@ The project provides tools for generating point sets, applying ordering heuristi
 
 ---
 
-## Project Structure
-
-.
-├── launch_viewer.sh
-├── README.md
-├── results/
-│ └── *.npz # Stored experiment results
-├── results_cosmas/
-│ └── *.npz # Stored Cosmas's backtracking sets experiment results
-└── tsp_analysis/
-├── experiment.py # Main experiment pipeline
-├── heuristics.py # Linear ordering heuristics
-├── geometry.py # Geometric utilities
-├── tsp_solver.py # LKH wrapper
-├── cosmas.py # Backtracking set construction
-├── plotting.py # Visualization helpers
-├── utils.py # Auxiliary utilities
-└── viewer_tk.py # Interactive GUI
-
----
-
 ## Running the Viewer
 
 To launch the interactive visualization interface:
@@ -59,9 +38,11 @@ Ordering heuristics are defined in heuristics.py.
 
 A heuristic is a function mapping a set of 2D points to a linear order:
 
+```python
 def my_heuristic(points: np.ndarray, **optional_parameters):
     ...
     return indices, codes
+```
 
 ### Requirements
  - points: array of shape (N, 2)
@@ -77,12 +58,7 @@ def my_heuristic(points: np.ndarray, **optional_parameters):
 
 ## Dependencies
 
-Python 3.9+
-numpy
-matplotlib
-scipy
-tkinter
-
+The code was compiled with Python 3.9.
 All dependencies are listed in requirements.txt.
 
 ## LKH Solver Note

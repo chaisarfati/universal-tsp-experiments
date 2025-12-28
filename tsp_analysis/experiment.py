@@ -4,44 +4,8 @@ import numpy as np
 
 from .geometry import generate_grid_points
 from .tsp_solver import solve_tsp_with_lkh, compute_path_cost
-from .utils import pick_random_combs
+from .utils import pick_random_combs, save_generic_utsp_result_to_file, load_generic_utsp_result_from_file
 from .plotting import plot_grid_with_points_interactive
-
-# -------------------------
-# SAVE / LOAD RESULTS
-# -------------------------
-def save_result_to_file(points, heur_order, tsp_order, ratio, M, k, oracle_name="heuristic", folder="results"):
-    """Save one .npz per heuristic with metadata."""
-    os.makedirs(folder, exist_ok=True)
-    filename = f"{folder}/grid_M{M}_set_k{k}_heuristic_{oracle_name}.npz"
-
-    log_of_k = math.log2(k)
-    cosmas = math.sqrt(log_of_k / math.log2(log_of_k))
-
-    np.savez_compressed(
-        filename,
-        points=points,
-        heur_order=heur_order,
-        tsp_order=tsp_order,
-        ratio=ratio,
-        log_of_k=log_of_k,
-        cosmas=cosmas,
-    )
-    print(f"💾 Saved: {filename}")
-
-def load_result_from_file(M, k, oracle_name="hilbert", folder="results"):
-    """Load a saved .npz result."""
-    filename = f"{folder}/grid_M{M}_set_k{k}_heuristic_{oracle_name}.npz"
-    data = np.load(filename)
-    return {
-        "points": data["points"],
-        "heur_order": data["heur_order"],
-        "tsp_order": data["tsp_order"],
-        "log_of_k": data["log_of_k"],
-        "cosmas": data["cosmas"],
-        "ratio": data["ratio"].item()
-    }
-
 
 # -------------------------
 # MAIN RANDOMIZED SEARCH
@@ -120,7 +84,7 @@ def find_worst_subset_randomized_generic(
         if r["worst_subset"] is None:
             continue
 
-        save_result_to_file(
+        save_generic_utsp_result_to_file(
             r["worst_subset"],
             r["best_orders"][0],
             r["best_orders"][1],
@@ -212,7 +176,7 @@ def find_best_subset_randomized_generic(
         if r["best_subset"] is None:
             continue
 
-        save_result_to_file(
+        save_generic_utsp_result_to_file(
             r["best_subset"],
             r["best_orders"][0],
             r["best_orders"][1],
@@ -233,7 +197,7 @@ def find_best_subset_randomized_generic(
 # -------------------------
 def demo_load(M, k, oracle_name="Hilbert", folder="results"):
     """Display interactive plot for a saved result."""
-    data = load_result_from_file(M, k, oracle_name, folder)
+    data = load_generic_utsp_result_from_file(M, k, oracle_name, folder)
     points = data["points"]
     heur_order = data["heur_order"]
     tsp_order = data["tsp_order"]

@@ -1,18 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import tkinter as tk
-from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg,
-    NavigationToolbar2Tk,
-)
-from .heuristics import hilbert_order
+from .heuristics import hilbert_order, platzman_order, zcurve_order
 from .tsp_solver import compute_path_cost, solve_tsp_with_lkh
 from .utils import (
     save_cosmas_result_to_file,
-    load_cosmas_result_from_file,
 )
 from .geometry import (
     generate_grid_points,
@@ -93,24 +83,12 @@ def induced_order(global_points, global_order, subset_points):
 # MAIN
 # ============================================================
 if __name__ == "__main__":
-    data = load_cosmas_result_from_file("results_cosmas/grid_M512_set_k67_heuristic_hilbert_ratio106,14.npz")
-
-    display_order_vs_tsp(
-        points=data["points"],
-        order_path=data["heur_order"],
-        tsp_path=data["tsp_order"],
-        heuristic_cost=data["heuristic_cost"],
-        tsp_cost=data["tsp_cost"],
-        pivot_state_map=data["pivot_state_map"],
-    )
-
     M = 512
     points = generate_grid_points(M)
-    order, _ = hilbert_order(points)
-
+    order, _ = zcurve_order(points)
     r = 5
     results = collect_pivots_multiscale(points, order, r)
-    print(f"Total pivots found: {len(results)}")
+    print(f"All pivots found: {len(results)}")
 
     global_line = generate_random_global_line()
     delta = 0.03
@@ -145,7 +123,7 @@ if __name__ == "__main__":
         tsp_cost=tsp_cost,
         pivot_state_map=pivot_state_map,
         M=M,
-        oracle_name="hilbert"    # ou autre si tu testes plusieurs heuristiques
+        oracle_name="z-order"    # ou autre si tu testes plusieurs heuristiques
     )
     print("Saved results")
 

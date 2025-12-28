@@ -1,7 +1,8 @@
 # plotting.py
 import numpy as np
 import tkinter as tk
-
+import matplotlib.pyplot as plt
+from matplotlib.widgets import CheckButtons
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_tkagg import (
@@ -34,7 +35,6 @@ def make_tk_figure(parent, figsize=(7, 7), title=None):
 # Visualisation locale : carré dyadique + backtrack
 # ============================================================
 def visualize_state_in_square(points, state):
-    print("visualize called from plotting")
     points = np.asarray(points, float)
 
     win = tk.Toplevel()
@@ -120,7 +120,7 @@ def display_order_vs_tsp(points, order_path, tsp_path,
                          heuristic_cost, tsp_cost,
                          pivot_state_map):
     """
-    Fenêtre Matplotlib indépendante (Tk-safe)
+    Independent Matplotlib (Tk-safe)
 
     - shows induced order path and exact TSP path
     - hover on a pivot:
@@ -130,18 +130,17 @@ def display_order_vs_tsp(points, order_path, tsp_path,
         * shows rank and scale t
     - click on a pivot opens its backtrack window
     """
-    print("Display called from plotting")
     points = np.asarray(points, float)
 
     # ==================================================
-    # Fenêtre Tk dédiée (ISOLATION TOTALE)
+    # Dedicate Tk Window
     # ==================================================
     win = tk.Toplevel()
     win.title("Cosmas – Order vs TSP")
     win.geometry("900x900")
 
     # ==================================================
-    # Figure Matplotlib (OO API — PAS pyplot)
+    # Matplotlib figure
     # ==================================================
     fig = Figure(figsize=(7, 7), dpi=100)
     ax = fig.add_subplot(111)
@@ -152,7 +151,7 @@ def display_order_vs_tsp(points, order_path, tsp_path,
     ax.set_title("Order path vs Exact TSP")
 
     # ==================================================
-    # Coûts (hors [0,1]²)
+    # Costs (outside the [0,1]² graphics)
     # ==================================================
     fig.text(
         0.02, 0.96,
@@ -162,9 +161,6 @@ def display_order_vs_tsp(points, order_path, tsp_path,
         bbox=dict(boxstyle="round", fc="white", alpha=0.9)
     )
 
-    # ==================================================
-    # Scatter des pivots (UN SEUL ARTISTE)
-    # ==================================================
     sc = ax.scatter(
         points[:, 0], points[:, 1],
         s=40, color="black",
@@ -200,11 +196,9 @@ def display_order_vs_tsp(points, order_path, tsp_path,
     toolbar.update()
 
     canvas.draw_idle()
-    # canvas = FigureCanvasTkAgg(fig, master=win)
-    # canvas.get_tk_widget().pack(fill="both", expand=True)
 
     # ==================================================
-    # Boutons Show / Hide
+    # Butons Show / Hide
     # ==================================================
     def toggle(line):
         line.set_visible(not line.get_visible())
@@ -294,7 +288,7 @@ def display_order_vs_tsp(points, order_path, tsp_path,
         canvas.draw_idle()
 
     # ==================================================
-    # Click handler → backtrack local
+    # Click handler -> local backtrack
     # ==================================================
     def on_pick(event):
         if event.ind is None or len(event.ind) == 0:
@@ -311,7 +305,7 @@ def display_order_vs_tsp(points, order_path, tsp_path,
         visualize_state_in_square(points, state)
 
     # ==================================================
-    # Connexions événements
+    # Events
     # ==================================================
     canvas.mpl_connect("motion_notify_event", on_move)
     canvas.mpl_connect("pick_event", on_pick)
@@ -322,41 +316,6 @@ def display_order_vs_tsp(points, order_path, tsp_path,
 ######################
 ######################
 ######################
-
-import matplotlib.pyplot as plt
-from matplotlib.widgets import CheckButtons
-
-# -------------------------
-# STATIC PLOT
-# -------------------------
-def plot_grid_with_points(points: np.ndarray, M: int, path_orders=None, labels=None, title: str = ""):
-    """Plot grid + points + optional paths (static)."""
-    plt.figure(figsize=(6, 6))
-    # Grid
-    for i in range(M + 1):
-        plt.axhline(i / M, color='lightgray', linewidth=0.5)
-        plt.axvline(i / M, color='lightgray', linewidth=0.5)
-
-    # Points
-    plt.scatter(points[:, 0], points[:, 1], color='red', zorder=5)
-
-    # Paths
-    if path_orders:
-        colors = ['blue', 'green']
-        for idx, order in enumerate(path_orders):
-            ordered = points[order]
-            lbl = labels[idx] if labels else f"path {idx}"
-            plt.plot(ordered[:, 0], ordered[:, 1], '-o', color=colors[idx % len(colors)], label=lbl)
-
-    plt.title(title)
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
-    plt.gca().set_aspect('equal')
-    if labels:
-        plt.legend()
-    plt.grid(False)
-    plt.show()
-
 
 # -------------------------
 # INTERACTIVE PLOT (CHECKBOX TOGGLE)
