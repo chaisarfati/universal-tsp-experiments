@@ -44,7 +44,17 @@ def solve_tsp_with_lkh(points: np.ndarray):
     # Reproject the tour back to [0,1] to map to 'points'
     reprojected = [(round(p.x / 100, 6), round(p.y / 100, 6)) for p in best_tour]
     index_map = { (round(p[0], 6), round(p[1], 6)) : i for i, p in enumerate(points) }
-    tsp_order = [index_map[coord] for coord in reprojected]
+    tsp_order = []
+    for coord in reprojected:
+        if coord in index_map:
+            tsp_order.append(index_map[coord])
+        else:
+            # fallback robuste : nearest neighbor
+            diffs = points - np.array(coord)
+            dists = np.hypot(diffs[:, 0], diffs[:, 1])
+            tsp_order.append(int(np.argmin(dists)))
+
+    #tsp_order = [index_map[coord] for coord in reprojected]
     return tsp_order
 
 

@@ -420,13 +420,14 @@ class ClassicResultsTab(ttk.Frame):
         tsp_cost = compute_path_cost(points, tsp_indices)
         ratio = heuristic_cost / tsp_cost if tsp_cost > 0 else float("inf")
 
-        log_of_k = math.log2(len(points)) if len(points) > 0 else 0
-        cosmas = ratio / math.sqrt(len(points) / log_of_k) if log_of_k > 0 else 0
+        log2_k = math.log2(len(points)) if len(points) > 0 else 0
+        cosmas = math.sqrt(log2_k / math.log2(log2_k))
+
 
         self.heur_order = heuristic_indices
         self.tsp_order = tsp_indices
         self.ratio = ratio
-        self.log_of_k = log_of_k
+        self.log_of_k = log2_k
         self.cosmas = cosmas
 
         self.refresh_plot()

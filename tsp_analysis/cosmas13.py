@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button
 import math
 
+from .utils import save_cosmas_result_to_file, load_cosmas_result_from_file
 from .geometry import (
     generate_grid_points,
     generate_dyadic_squares,
@@ -16,78 +17,6 @@ from .geometry import (
 from .heuristics import hilbert_order
 from .tsp_solver import compute_path_cost, solve_tsp_with_lkh
 import os
-
-
-def save_cosmas_result_to_file(
-    S,
-    heur_order,
-    tsp_order,
-    heuristic_cost,
-    tsp_cost,
-    pivot_state_map,
-    M,
-    oracle_name="heuristic",
-    folder="results_cosmas"
-):
-    """
-    Save full cosmas experiment result, including pivot states
-    needed for interactive visualization.
-    """
-    os.makedirs(folder, exist_ok=True)
-
-    n_S = len(S)
-    if n_S < 4:
-        raise ValueError("cosmas undefined for |S| < 4")
-
-    log2_n = math.log2(n_S)
-    cosmas = math.sqrt(log2_n / math.log2(log2_n))
-
-    ratio = heuristic_cost / tsp_cost
-    ratio_over_cosmas = ratio / cosmas
-
-    # ratio en pourcentage, 2 décimales, virgule française
-    ratio_pct = round(100 * ratio_over_cosmas, 2)
-    ratio_str = f"{ratio_pct:.2f}".replace(".", ",")
-
-    filename = (
-        f"{folder}/"
-        f"grid_M{M}_set_k{n_S}_heuristic_{oracle_name}_"
-        f"ratio{ratio_str}.npz"
-    )
-
-    np.savez_compressed(
-        filename,
-        points=S,
-        heur_order=heur_order,
-        tsp_order=tsp_order,
-        heuristic_cost=heuristic_cost,
-        tsp_cost=tsp_cost,
-        ratio=ratio,
-        cosmas=cosmas,
-        ratio_over_cosmas=ratio_over_cosmas,
-        M=M,
-        k=n_S,
-        pivot_state_map=pivot_state_map,  # ⚠️ pickle
-    )
-
-    print(f"💾 Saved: {filename}")
-
-def load_cosmas_result_from_file(filename):
-    data = np.load(filename, allow_pickle=True)
-    return {
-        "points": data["points"],
-        "heur_order": data["heur_order"],
-        "tsp_order": data["tsp_order"],
-        "heuristic_cost": data["heuristic_cost"].item(),
-        "tsp_cost": data["tsp_cost"].item(),
-        "ratio": data["ratio"].item(),
-        "cosmas": data["cosmas"].item(),
-        "ratio_over_cosmas": data["ratio_over_cosmas"].item(),
-        "M": int(data["M"]),
-        "k": int(data["k"]),
-        "pivot_state_map": data["pivot_state_map"].item(),
-        "timestamp": data.get("timestamp", None),
-    }
 
 
 # ============================================================
@@ -157,9 +86,30 @@ def induced_order(global_points, global_order, subset_points):
 # ============================================================
 # VISUALISATION LOCALE : DYADIC SQUARE + BACKTRACK
 # ============================================================
+import tkinter as tk
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.patches import Rectangle
+
+
 def visualize_state_in_square(points, state):
+    """
+    Visualisation locale d'un carré dyadique + backtrack (Tk-safe)
+    """
+
     points = np.asarray(points, float)
 
+    # ==================================================
+    # Fenêtre Tk dédiée
+    # ==================================================
+    win = tk.Toplevel()
+    win.title("Local backtrack view")
+    win.geometry("700x700")
+
+    # ==================================================
+    # Extraction des infos géométriques
+    # ==================================================
     sq = state["_square"]
     t = sq["t"]
     sq_idx = sq["sq_idx"]
@@ -180,71 +130,115 @@ def visualize_state_in_square(points, state):
     n = state["n"]
     theta = state["theta"]
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    l = state["_geom"]["l"]
+    w = state["_geom"]["w"]
+
+    # ==================================================
+    # Figure Matplotlib (OO API — PAS pyplot)
+    # ==================================================
+    fig = Figure(figsize=(6, 6), dpi=100)
+    ax = fig.add_subplot(111)
+
     ax.set_aspect("equal")
     ax.set_xlim(x0, x0 + size)
     ax.set_ylim(y0, y0 + size)
     ax.set_title(f"Dyadic square #{sq_idx} (t={t})")
     ax.grid(False)
 
-    # carré dyadique
-    ax.add_patch(Rectangle((x0, y0), size, size,
-                           edgecolor="gray", facecolor="none"))
+    # ==================================================
+    # Carré dyadique
+    # ==================================================
+    ax.add_patch(
+        Rectangle(
+            (x0, y0), size, size,
+            edgecolor="gray",
+            facecolor="none"
+        )
+    )
 
-    # droite locale L0
+    # ==================================================
+    # Droite locale L0
+    # ==================================================
     ts = np.linspace(-1, 1, 400)
     line = np.array([p + tt * d for tt in ts])
     ax.plot(line[:, 0], line[:, 1], "--k", label="local line $L_0$")
 
-    # rectangles R1, R2
-    l = state["_geom"]["l"]
-    w = state["_geom"]["w"]
-    # l = np.linalg.norm(q1 - p)
-    # w = 0.3 * size
+    # ==================================================
+    # Rectangles R1, R2
+    # ==================================================
     for sign, color in [(-1, "orange"), (1, "green")]:
         center = p + sign * (l / 2) * d
         corner = center - (l / 2) * d - (w / 2) * n
-        ax.add_patch(Rectangle(
-            corner, l, w,
-            angle=np.degrees(theta),
-            facecolor=color,
-            edgecolor=color,
-            alpha=0.3
-        ))
+        ax.add_patch(
+            Rectangle(
+                corner, l, w,
+                angle=np.degrees(theta),
+                facecolor=color,
+                edgecolor=color,
+                alpha=0.3
+            )
+        )
 
-    # points
+    # ==================================================
+    # Points
+    # ==================================================
     before = np.array(ordered[:p_index])
     after = np.array(ordered[p_index + 1:])
 
     if len(before):
         ax.scatter(before[:, 0], before[:, 1],
                    s=25, color="black", label="before p")
+
     if len(after):
         ax.scatter(after[:, 0], after[:, 1],
                    s=25, color="cyan", label="after p")
 
-    ax.scatter([p[0]], [p[1]], s=90, color="red", label="pivot p")
+    ax.scatter([p[0]], [p[1]],
+               s=90, color="red", label="pivot p")
+
     ax.plot([p[0], q1[0], q2[0]],
             [p[1], q1[1], q2[1]],
             color="cyan", linewidth=3, label="backtrack")
 
     if len(ordered) >= 2:
         ax.plot(ordered[:, 0], ordered[:, 1],
-                color="blue", linewidth=1, alpha=0.6,
-                label="induced order")
+                color="blue", linewidth=1,
+                alpha=0.6, label="induced order")
 
     ax.legend()
-    plt.show(block=False)
+
+    # ==================================================
+    # Canvas Tk
+    # ==================================================
+    canvas = FigureCanvasTkAgg(fig, master=win)
+    canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    toolbar = NavigationToolbar2Tk(canvas, win)
+    toolbar.update()
+
+    canvas.draw_idle()
 
 
-# ============================================================
-# VISUALISATION GLOBALE : ORDRE vs TSP + CLIC
-# ============================================================
+import tkinter as tk
+from tkinter import ttk, messagebox
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.widgets import Button
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+
+import tkinter as tk
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.widgets import Button
+
+
 def display_order_vs_tsp(points, order_path, tsp_path,
                          heuristic_cost, tsp_cost,
                          pivot_state_map):
     """
-    Global interactive visualization:
+    Fenêtre Matplotlib indépendante (Tk-safe)
+
     - shows induced order path and exact TSP path
     - hover on a pivot:
         * points before in induced order -> blue
@@ -254,66 +248,112 @@ def display_order_vs_tsp(points, order_path, tsp_path,
     - click on a pivot opens its backtrack window
     """
 
-    fig, ax = plt.subplots(figsize=(7, 7))
+    points = np.asarray(points, float)
+
+    # ==================================================
+    # Fenêtre Tk dédiée (ISOLATION TOTALE)
+    # ==================================================
+    win = tk.Toplevel()
+    win.title("Cosmas – Order vs TSP")
+    win.geometry("900x900")
+
+    # ==================================================
+    # Figure Matplotlib (OO API — PAS pyplot)
+    # ==================================================
+    fig = Figure(figsize=(7, 7), dpi=100)
+    ax = fig.add_subplot(111)
+
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_aspect("equal")
     ax.set_title("Order path vs Exact TSP")
 
-    # --------------------------------------------------
-    # Scatter of pivots (ONE artist only – important)
-    # --------------------------------------------------
-    sc = ax.scatter(
-        points[:, 0], points[:, 1],
-        s=40, color="black", zorder=5, picker=True
+    # ==================================================
+    # Coûts (hors [0,1]²)
+    # ==================================================
+    fig.text(
+        0.02, 0.96,
+        f"order_cost = {heuristic_cost:.3f}\noptimal_tsp = {tsp_cost:.3f}",
+        ha="left", va="top",
+        fontsize=9,
+        bbox=dict(boxstyle="round", fc="white", alpha=0.9)
     )
 
-    # --------------------------------------------------
-    # Order path and TSP path
-    # --------------------------------------------------
+    # ==================================================
+    # Scatter des pivots (UN SEUL ARTISTE)
+    # ==================================================
+    sc = ax.scatter(
+        points[:, 0], points[:, 1],
+        s=40, color="black",
+        zorder=5, picker=True
+    )
+
+    # ==================================================
+    # Paths
+    # ==================================================
     order_line, = ax.plot(
         points[order_path, 0],
         points[order_path, 1],
-        linewidth=2, label="Order path"
+        linewidth=2,
+        label="Order path"
     )
 
     tsp_line, = ax.plot(
         points[tsp_path, 0],
         points[tsp_path, 1],
-        linewidth=2, label="Exact TSP"
+        linewidth=2,
+        label="Exact TSP"
     )
 
     ax.legend()
 
-    # --------------------------------------------------
-    # Buttons: show / hide paths
-    # --------------------------------------------------
-    class Toggle:
-        def __init__(self, line):
-            self.line = line
-            self.visible = True
+    # ==================================================
+    # Canvas Tk
+    # ==================================================
+    canvas = FigureCanvasTkAgg(fig, master=win)
+    canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        def toggle(self, event):
-            self.visible = not self.visible
-            self.line.set_visible(self.visible)
-            fig.canvas.draw_idle()
+    toolbar = NavigationToolbar2Tk(canvas, win)
+    toolbar.update()
 
-    btn1 = Button(plt.axes([0.1, 0.02, 0.35, 0.06]), "Show / Hide Order Path")
-    btn2 = Button(plt.axes([0.55, 0.02, 0.35, 0.06]), "Show / Hide TSP Path")
+    canvas.draw_idle()
+    # canvas = FigureCanvasTkAgg(fig, master=win)
+    # canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    btn1.on_clicked(Toggle(order_line).toggle)
-    btn2.on_clicked(Toggle(tsp_line).toggle)
+    # ==================================================
+    # Boutons Show / Hide
+    # ==================================================
+    def toggle(line):
+        line.set_visible(not line.get_visible())
+        canvas.draw_idle()
 
-    # --------------------------------------------------
+    controls = tk.Frame(win)
+    controls.pack(side="bottom", fill="x", pady=4)
+
+    def toggle_order():
+        order_line.set_visible(not order_line.get_visible())
+        canvas.draw_idle()
+
+    def toggle_tsp():
+        tsp_line.set_visible(not tsp_line.get_visible())
+        canvas.draw_idle()
+
+    tk.Button(controls, text="Show / Hide Order Path",
+            command=toggle_order).pack(side="left", padx=10)
+
+    tk.Button(controls, text="Show / Hide TSP Path",
+            command=toggle_tsp).pack(side="left", padx=10)
+
+    # ==================================================
     # Induced order rank
-    # --------------------------------------------------
+    # ==================================================
     n = len(points)
     rank = np.empty(n, dtype=int)
     rank[order_path] = np.arange(n)
 
-    # --------------------------------------------------
+    # ==================================================
     # Hover text
-    # --------------------------------------------------
+    # ==================================================
     hover_text = ax.text(
         0.02, 0.98, "",
         transform=ax.transAxes,
@@ -323,17 +363,14 @@ def display_order_vs_tsp(points, order_path, tsp_path,
     )
     hover_text.set_visible(False)
 
-    # --------------------------------------------------
-    # Hover handler (motion)
-    # --------------------------------------------------
+    # ==================================================
+    # Hover handler
+    # ==================================================
     def on_move(event):
         if event.inaxes != ax or event.x is None or event.y is None:
             return
 
-        # positions écran de la souris
         mx, my = event.x, event.y
-
-        # positions écran des points
         pts_disp = ax.transData.transform(points)
 
         dists = np.hypot(
@@ -343,17 +380,17 @@ def display_order_vs_tsp(points, order_path, tsp_path,
 
         i = np.argmin(dists)
 
-        # rayon de détection en pixels (TRÈS important)
-        if dists[i] > 10:   # 10 pixels = bon compromis
+        # seuil en pixels
+        if dists[i] > 10:
             sc.set_color("black")
             hover_text.set_visible(False)
-            fig.canvas.draw_idle()
+            canvas.draw_idle()
             return
 
         r = rank[i]
 
         colors = []
-        for j in range(len(points)):
+        for j in range(n):
             if j == i:
                 colors.append("gold")
             elif rank[j] < r:
@@ -371,28 +408,277 @@ def display_order_vs_tsp(points, order_path, tsp_path,
         )
         hover_text.set_visible(True)
 
-        fig.canvas.draw_idle()
-    # --------------------------------------------------
-    # Click handler (open backtrack)
-    # --------------------------------------------------
-    def on_pick(event):
-        ind = event.ind
-        if len(ind) == 0:
-            return
-        i = ind[0]
-        p = tuple(points[i])
+        canvas.draw_idle()
 
+    # ==================================================
+    # Click handler → backtrack local
+    # ==================================================
+    def on_pick(event):
+        if event.ind is None or len(event.ind) == 0:
+            return
+
+        # si plusieurs points sont détectés, on prend le plus proche
+        i = int(event.ind[0])
+
+        p = tuple(points[i])
         if p not in pivot_state_map:
             return
 
         state = pivot_state_map[p]
         visualize_state_in_square(points, state)
 
-    fig.canvas.mpl_connect("motion_notify_event", on_move)
-    fig.canvas.mpl_connect("pick_event", on_pick)
+    # ==================================================
+    # Connexions événements
+    # ==================================================
+    canvas.mpl_connect("motion_notify_event", on_move)
+    canvas.mpl_connect("pick_event", on_pick)
+
+    canvas.draw_idle()
 
 
-    plt.show()
+# def display_order_vs_tsp(points, order_path, tsp_path,
+#                          heuristic_cost, tsp_cost,
+#                          pivot_state_map):
+#     """
+#     Fenêtre Matplotlib indépendante (Tk-safe)
+#     """
+
+#     # --------------------------------------------------
+#     # Fenêtre Tk dédiée
+#     # --------------------------------------------------
+#     win = tk.Toplevel()
+#     win.title("Cosmas – Order vs TSP")
+#     win.geometry("900x900")
+
+#     # --------------------------------------------------
+#     # Figure Matplotlib ISOLÉE (pas de plt.*)
+#     # --------------------------------------------------
+#     fig = Figure(figsize=(7, 7), dpi=100)
+#     ax = fig.add_subplot(111)
+
+#     ax.set_xlim(0, 1)
+#     ax.set_ylim(0, 1)
+#     ax.set_aspect("equal")
+#     ax.set_title("Order path vs Exact TSP")
+
+#     # --------------------------------------------------
+#     # Scatter
+#     # --------------------------------------------------
+#     sc = ax.scatter(
+#         points[:, 0], points[:, 1],
+#         s=40, color="black", zorder=5, picker=True
+#     )
+
+#     # --------------------------------------------------
+#     # Paths
+#     # --------------------------------------------------
+#     order_line, = ax.plot(
+#         points[order_path, 0],
+#         points[order_path, 1],
+#         linewidth=2, label="Order path"
+#     )
+
+#     tsp_line, = ax.plot(
+#         points[tsp_path, 0],
+#         points[tsp_path, 1],
+#         linewidth=2, label="Exact TSP"
+#     )
+
+#     ax.legend()
+
+#     # --------------------------------------------------
+#     # Costs (hors [0,1]^2)
+#     # --------------------------------------------------
+#     fig.text(
+#         0.02, 0.92,
+#         f"order_cost = {heuristic_cost:.3f}\noptimal_tsp = {tsp_cost:.3f}",
+#         fontsize=9,
+#         bbox=dict(boxstyle="round", fc="white", alpha=0.9)
+#     )
+
+#     # --------------------------------------------------
+#     # Canvas Tk
+#     # --------------------------------------------------
+#     canvas = FigureCanvasTkAgg(fig, master=win)
+#     canvas.get_tk_widget().pack(fill="both", expand=True)
+
+#     # --------------------------------------------------
+#     # Boutons show/hide
+#     # --------------------------------------------------
+#     def toggle(line):
+#         line.set_visible(not line.get_visible())
+#         canvas.draw_idle()
+
+#     btn_ax1 = fig.add_axes([0.15, 0.02, 0.3, 0.05])
+#     btn_ax2 = fig.add_axes([0.55, 0.02, 0.3, 0.05])
+
+#     Button(btn_ax1, "Show / Hide Order").on_clicked(lambda e: toggle(order_line))
+#     Button(btn_ax2, "Show / Hide TSP").on_clicked(lambda e: toggle(tsp_line))
+
+#     canvas.draw_idle()
+
+# ============================================================
+# VISUALISATION GLOBALE : ORDRE vs TSP + CLIC
+# ============================================================
+# def display_order_vs_tsp(points, order_path, tsp_path,
+#                          heuristic_cost, tsp_cost,
+#                          pivot_state_map):
+#     """
+#     Global interactive visualization:
+#     - shows induced order path and exact TSP path
+#     - hover on a pivot:
+#         * points before in induced order -> blue
+#         * points after -> red
+#         * hovered pivot -> gold
+#         * shows rank and scale t
+#     - click on a pivot opens its backtrack window
+#     """
+
+#     fig, ax = plt.subplots(figsize=(7, 7))
+#     ax.set_xlim(0, 1)
+#     ax.set_ylim(0, 1)
+#     ax.set_aspect("equal")
+#     ax.set_title("Order path vs Exact TSP")
+#     fig.text(
+#         0.02, 0.96,
+#         f"order_cost = {heuristic_cost:.3f}\noptimal_tsp = {tsp_cost:.3f}",
+#         ha="left", va="top",
+#         fontsize=9,
+#         bbox=dict(boxstyle="round", fc="white", alpha=0.9)
+#     )
+#     # --------------------------------------------------
+#     # Scatter of pivots (ONE artist only – important)
+#     # --------------------------------------------------
+#     sc = ax.scatter(
+#         points[:, 0], points[:, 1],
+#         s=40, color="black", zorder=5, picker=True
+#     )
+
+#     # --------------------------------------------------
+#     # Order path and TSP path
+#     # --------------------------------------------------
+#     order_line, = ax.plot(
+#         points[order_path, 0],
+#         points[order_path, 1],
+#         linewidth=2, label="Order path"
+#     )
+
+#     tsp_line, = ax.plot(
+#         points[tsp_path, 0],
+#         points[tsp_path, 1],
+#         linewidth=2, label="Exact TSP"
+#     )
+
+#     ax.legend()
+
+#     # --------------------------------------------------
+#     # Buttons: show / hide paths
+#     # --------------------------------------------------
+#     class Toggle:
+#         def __init__(self, line):
+#             self.line = line
+#             self.visible = True
+
+#         def toggle(self, event):
+#             self.visible = not self.visible
+#             self.line.set_visible(self.visible)
+#             fig.canvas.draw_idle()
+
+#     btn1 = Button(plt.axes([0.1, 0.02, 0.35, 0.06]), "Show / Hide Order Path")
+#     btn2 = Button(plt.axes([0.55, 0.02, 0.35, 0.06]), "Show / Hide TSP Path")
+
+#     btn1.on_clicked(Toggle(order_line).toggle)
+#     btn2.on_clicked(Toggle(tsp_line).toggle)
+
+#     # --------------------------------------------------
+#     # Induced order rank
+#     # --------------------------------------------------
+#     n = len(points)
+#     rank = np.empty(n, dtype=int)
+#     rank[order_path] = np.arange(n)
+
+#     # --------------------------------------------------
+#     # Hover text
+#     # --------------------------------------------------
+#     hover_text = ax.text(
+#         0.02, 0.98, "",
+#         transform=ax.transAxes,
+#         va="top", ha="left",
+#         fontsize=9,
+#         bbox=dict(boxstyle="round", fc="white", alpha=0.85)
+#     )
+#     hover_text.set_visible(False)
+
+#     # --------------------------------------------------
+#     # Hover handler (motion)
+#     # --------------------------------------------------
+#     def on_move(event):
+#         if event.inaxes != ax or event.x is None or event.y is None:
+#             return
+
+#         # positions écran de la souris
+#         mx, my = event.x, event.y
+
+#         # positions écran des points
+#         pts_disp = ax.transData.transform(points)
+
+#         dists = np.hypot(
+#             pts_disp[:, 0] - mx,
+#             pts_disp[:, 1] - my
+#         )
+
+#         i = np.argmin(dists)
+
+#         # rayon de détection en pixels (TRÈS important)
+#         if dists[i] > 10:   # 10 pixels = bon compromis
+#             sc.set_color("black")
+#             hover_text.set_visible(False)
+#             fig.canvas.draw_idle()
+#             return
+
+#         r = rank[i]
+
+#         colors = []
+#         for j in range(len(points)):
+#             if j == i:
+#                 colors.append("gold")
+#             elif rank[j] < r:
+#                 colors.append("dodgerblue")
+#             else:
+#                 colors.append("tomato")
+
+#         sc.set_color(colors)
+
+#         p = tuple(points[i])
+#         t = pivot_state_map[p]["_square"]["t"]
+
+#         hover_text.set_text(
+#             f"pivot rank = {r}\nscale t = {t}"
+#         )
+#         hover_text.set_visible(True)
+
+#         fig.canvas.draw_idle()
+#     # --------------------------------------------------
+#     # Click handler (open backtrack)
+#     # --------------------------------------------------
+#     def on_pick(event):
+#         ind = event.ind
+#         if len(ind) == 0:
+#             return
+#         i = ind[0]
+#         p = tuple(points[i])
+
+#         if p not in pivot_state_map:
+#             return
+
+#         state = pivot_state_map[p]
+#         visualize_state_in_square(points, state)
+
+#     fig.canvas.mpl_connect("motion_notify_event", on_move)
+#     fig.canvas.mpl_connect("pick_event", on_pick)
+
+
+#     plt.show()
 
 
 def display_global_selected_pivots(points,

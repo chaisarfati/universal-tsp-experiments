@@ -1,7 +1,4 @@
 # Re-export convenient entry points for external use
-from .cosmas import (
-    generate_dyadic_squares
-)
 
 from .geometry import (
     generate_grid_points,
