@@ -239,7 +239,7 @@ class ClassicResultsTab(ttk.Frame):
         M_var = tk.IntVar(value=self.var_M.get())
         k_var = tk.IntVar(value=max(self.var_k.get(), 10))
         h_var = tk.StringVar(value=self.var_h.get())
-        iter_var = tk.IntVar(value=100)
+        iter_var = tk.IntVar(value=10)
 
         tk.Label(popup, text="Grid size M:").pack(pady=4)
         tk.Entry(popup, textvariable=M_var).pack()
@@ -380,62 +380,36 @@ class ClassicResultsTab(ttk.Frame):
     def recompute_paths(self):
         from .heuristics import heuristics_registry_dict
         from .tsp_solver import solve_tsp_with_lkh, compute_path_cost
-        from .save_utils import save_generic_utsp_result_to_file
-        import math
 
         points = self.points
-        h_name = self.h_var.get()   # ← heuristique sélectionnée
-        M = self.M_var.get()        # ← grid size
-        k = self.k_var.get()        # ← subset size
+        h_name = self.var_h.get()
 
         if h_name not in heuristics_registry_dict:
             messagebox.showerror("Error", f"Heuristic '{h_name}' not found in registry.")
             return
 
         heuristic_fn = heuristics_registry_dict[h_name]
-
         try:
             heuristic_indices, _ = heuristic_fn(points)
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Failed to apply heuristic '{h_name}':\n{e}"
-            )
+            messagebox.showerror("Error", f"Failed to apply heuristic '{h_name}':\n{e}")
             return
 
         tsp_indices = solve_tsp_with_lkh(points)
 
         heuristic_cost = compute_path_cost(points, heuristic_indices)
         tsp_cost = compute_path_cost(points, tsp_indices)
+        ratio = heuristic_cost / tsp_cost if tsp_cost > 0 else float("inf")
 
-        if tsp_cost == 0:
-            messagebox.showerror("Error", "TSP cost is zero, cannot compute ratio.")
-            return
+        log2_k = math.log2(len(points)) if len(points) > 0 else 0
+        cosmas = math.sqrt(log2_k / math.log2(log2_k))
 
-        ratio = heuristic_cost / tsp_cost
 
-        # --- cosmas / log(k) (pour affichage) ---
-        log2_k = math.log2(k) if k > 1 else 0
-        cosmas = math.sqrt(log2_k / math.log2(log2_k)) if log2_k > 1 else float("nan")
-
-        # --- stocker dans l'objet ---
         self.heur_order = heuristic_indices
         self.tsp_order = tsp_indices
         self.ratio = ratio
         self.log_of_k = log2_k
         self.cosmas = cosmas
-
-        # --- sauvegarde (même contrat que le batch) ---
-        save_generic_utsp_result_to_file(
-            points=points,
-            heur_order=heuristic_indices,
-            tsp_order=tsp_indices,
-            ratio=ratio,
-            M=M,
-            k=k,
-            oracle_name=h_name,
-            folder="results",
-        )
 
         self.refresh_plot()
 
