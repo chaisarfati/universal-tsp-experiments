@@ -1,9 +1,7 @@
 ipywidgets
 matplotlib
 hilbertcurve
-lk_heuristic
+zCurve
 git+https://github.com/chaisarfati/lk_heuristic.git
 numpy
 tkinter
-
-
