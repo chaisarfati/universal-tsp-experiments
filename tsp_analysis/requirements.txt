@@ -5,4 +5,5 @@ zCurve
 lk_heuristic
 git+https://github.com/chaisarfati/lk_heuristic.git
 numpy
-tk
+tkinter
+
