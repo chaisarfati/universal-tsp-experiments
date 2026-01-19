@@ -165,13 +165,16 @@ def find_best_subset_randomized_generic(
 
             # Update best ratio
             if ratio >= 1 and ratio < results[name]["best_ratio"]:
+                print("Update best_ratio")
                 results[name]["best_ratio"] = ratio
                 results[name]["best_subset"] = subset
                 results[name]["best_orders"] = (heur_order, tsp_order)
 
     # Save results
+    print("Saving results...")
     for name, r in results.items():
         if r["best_subset"] is None:
+            print("Couldn't save")
             continue
 
         save_generic_utsp_result_to_file(

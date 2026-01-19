@@ -255,7 +255,7 @@ class ClassicResultsTab(ttk.Frame):
         tk.Entry(popup, textvariable=iter_var).pack()
 
         def generate_and_close():
-            from tsp_analysis.experiment import find_best_subset_randomized_generic
+            from tsp_analysis.experiment import find_worst_subset_randomized_generic
             from tsp_analysis.heuristics import heuristics_registry_dict
 
             M = M_var.get()
@@ -268,7 +268,7 @@ class ClassicResultsTab(ttk.Frame):
                 return
 
             try:
-                find_best_subset_randomized_generic(
+                find_worst_subset_randomized_generic(
                     M=M,
                     k=k,
                     order_fn=[heuristics_registry_dict[h]],
