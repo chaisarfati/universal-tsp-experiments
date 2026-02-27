@@ -1,42 +1,36 @@
 #!/bin/bash
 
-# -----------------------------------------------------------------------------
-# Minimal & safe launch script (macOS)
-# Adds only a virtual environment to avoid NumPy / pip issues
-# -----------------------------------------------------------------------------
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd "$BASE_DIR"
 
-PYTHON=python
+PYTHON=python3
+VENV_DIR="$BASE_DIR/.venv"
 
-# 1. Check python
-if ! command -v $PYTHON &>/dev/null; then
-    echo "[ERROR] Python is not installed."
-    exit 1
+# 1. Clean up broken venv if it exists but activation fails
+if [ -d "$VENV_DIR" ] && [ ! -f "$VENV_DIR/bin/activate" ]; then
+    echo "[INFO] Cleaning up broken virtual environment..."
+    rm -rf "$VENV_DIR"
 fi
 
-echo "[INFO] Using Python: $($PYTHON --version)"
-
-# 2. Create venv if not exists
-if [ ! -d ".venv" ]; then
+# 2. Create venv
+if [ ! -d "$VENV_DIR" ]; then
     echo "[INFO] Creating virtual environment..."
-    $PYTHON -m venv .venv
+    $PYTHON -m venv "$VENV_DIR"
 fi
 
-# 3. Activate venv
-source .venv/bin/activate
-
-# 4. Ensure pip is available
-if ! python -m pip --version &>/dev/null; then
-    echo "[ERROR] pip is not available in this Python."
+# 3. Activate and Verify
+if [ -f "$VENV_DIR/bin/activate" ]; then
+    source "$VENV_DIR/bin/activate"
+else
+    echo "[ERROR] Failed to activate virtual environment. Is python3-venv installed?"
     exit 1
 fi
 
-# 5. Install dependencies
-cd tsp_analysis
+# 4. Install dependencies using the venv's pip specifically
 echo "[INFO] Installing dependencies..."
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-cd ..
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$BASE_DIR/tsp_analysis/requirements.txt"
 
-# 6. Launch the viewer
+# 5. Launch
 echo "[INFO] Launching the viewer..."
-python -m tsp_analysis.viewer_tk
+"$VENV_DIR/bin/python" -m tsp_analysis.viewer_tk

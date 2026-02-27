@@ -4,4 +4,3 @@ hilbertcurve
 zCurve
 git+https://github.com/chaisarfati/lk_heuristic.git
 numpy
-tkinter
